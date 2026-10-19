@@ -89,7 +89,9 @@ Finally, CASPER generates an **evidence-based forensic report** containing trace
 
 ---
 
-## ⚙️ High-Level Technical Architecture
+## ⚙️ Enterprise Technical System Architecture
+
+Casper is architected as an **end-to-end, multi-tier forensic intelligence pipeline** connecting modern web presentation, edge delivery, serverless API orchestration, autonomous AI reasoning over MCP, FalkorDB GraphBLAS in-memory graph execution, and cryptographically verified evidence synthesis:
 
 ```mermaid
 %%{init: {
@@ -106,98 +108,165 @@ Finally, CASPER generates an **evidence-based forensic report** containing trace
     'edgeLabelBackground': '#0F172A',
     'textColor': '#F8FAFC',
     'fontFamily': 'Inter, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif',
-    'fontSize': '13px'
+    'fontSize': '12px'
   },
   'flowchart': {
     'curve': 'basis',
-    'nodeSpacing': 50,
-    'rankSpacing': 65
+    'nodeSpacing': 35,
+    'rankSpacing': 45
   }
 }}%%
 flowchart TB
     classDef clientStyle fill:#0F172A,stroke:#38BDF8,stroke-width:2px,color:#FFFFFF,font-weight:bold;
-    classDef edgeStyle fill:#000000,stroke:#38BDF8,stroke-width:2px,color:#FFFFFF,font-weight:bold;
-    classDef computeStyle fill:#020617,stroke:#60A5FA,stroke-width:2px,color:#FFFFFF,font-weight:bold;
-    classDef falkorStyle fill:#881337,stroke:#FB7185,stroke-width:2.5px,color:#FFFFFF,font-weight:bold;
-    classDef mcpStyle fill:#4C1D95,stroke:#C4B5FD,stroke-width:2px,color:#FFFFFF,font-weight:bold;
+    classDef edgeStyle fill:#020617,stroke:#60A5FA,stroke-width:2px,color:#FFFFFF,font-weight:bold;
+    classDef computeStyle fill:#0B132B,stroke:#38BDF8,stroke-width:1.5px,color:#FFFFFF,font-weight:bold;
     classDef agentStyle fill:#1E1B4B,stroke:#818CF8,stroke-width:2px,color:#FFFFFF,font-weight:bold;
-    classDef reportStyle fill:#064E3B,stroke:#34D399,stroke-width:2px,color:#FFFFFF,font-weight:bold;
+    classDef mcpStyle fill:#3B0764,stroke:#C084FC,stroke-width:2px,color:#FFFFFF,font-weight:bold;
+    classDef falkorStyle fill:#4C0519,stroke:#FB7185,stroke-width:2px,color:#FFFFFF,font-weight:bold;
+    classDef extStyle fill:#451A03,stroke:#FBBF24,stroke-width:1.5px,color:#FFFFFF,font-weight:bold;
+    classDef reportStyle fill:#022C22,stroke:#34D399,stroke-width:2px,color:#FFFFFF,font-weight:bold;
 
-    subgraph Tier_Presentation ["Interactive Command & Spatial Forensic Presentation Tier"]
+    subgraph Tier_Presentation ["Tier 1: Interactive Forensic Presentation & Spatial Canvas (React 19 / Canvas)"]
         direction LR
-        AnalystClient(["Forensic Analyst & Compliance Officer<br/>Interactive 2D/3D Force Graph & Command Center"]):::clientStyle
-        EdgeVercel(["Vercel Edge Global Network<br/>TLS 1.3 Termination, Static Asset Caching & CI/CD"]):::edgeStyle
+        Analyst(["Forensic Investigator & Compliance Auditor<br/>Case Triage & Interactive Visualizer"]):::clientStyle
+        CanvasEngine["HTML5 Canvas 2D/3D Force Graph Engine<br/>60 FPS Spring Physics • Dynamic Particle Flow"]:::clientStyle
+        Workbench["WalletInvestigatorWorkbench<br/>Intake Normalizer & Case Preset Selector"]:::clientStyle
+        AuditLedger["TraceLedgerTable<br/>Multi-Hop Transaction Audit Ledger"]:::clientStyle
+        CopilotHUD["AgentChatCopilot<br/>Natural Language Forensic Assistant"]:::clientStyle
+        TelemetryFeed["AgentActivityFeed<br/>Live Cypher Execution & Telemetry Stream"]:::clientStyle
+        StateStore[("Investigation State Store<br/>Reactive Zustand State & Audit Trail")]:::clientStyle
     end
 
-    AnalystClient <-->|"HTTPS & Reactive State Updates"| EdgeVercel
-
-    subgraph Tier_Compute ["Next.js 16 Serverless Application Engine (Turbopack)"]
+    subgraph Tier_Edge ["Tier 2: Global Edge Delivery & Ingress Gateway (Vercel)"]
         direction TB
-        AppRouter["Next.js 16 App Router & API Routes<br/>/api/trace • /api/investigate • /api/report • /api/chat"]:::computeStyle
-        StateStore[("Investigation State Store<br/>Reactive In-Memory Audit Trail & Live Ledger")]:::computeStyle
-        AppRouter <--> StateStore
+        VercelEdge["Vercel Global Anycast Edge Network<br/>TLS 1.3 Termination • WAF • Edge Caching"]:::edgeStyle
+        NextTurbopack["Next.js 16 Application Engine (Turbopack)<br/>Serverless Edge SSR & Route Middleware"]:::edgeStyle
+        VercelEdge <--> NextTurbopack
     end
 
-    EdgeVercel <-->|"Edge Ingress Proxy"| AppRouter
-
-    subgraph Tier_FalkorDB ["FalkorDB Graph Engine & GraphBLAS Acceleration Core"]
-        direction TB
-        FalkorCore[("FalkorDB In-Memory Graph<br/>GraphBLAS Sparse Matrix Algebra Core")]:::falkorStyle
-        CypherEngine["openCypher Query Execution Engine<br/>Sub-4ms Multi-Hop Pattern Matching"]:::falkorStyle
-        FalkorCore <--> CypherEngine
+    subgraph Tier_External ["Tier 3: External Blockchain & Threat Intelligence Ingestion"]
+        direction LR
+        EtherscanAPI["Etherscan v2 API<br/>On-Chain Transaction & Token Ingestion"]:::extStyle
+        OFACList["OFAC SDN Sanctions List<br/>Designated Terrorist & Ransomware Tags"]:::extStyle
+        CEXClusters["CEX Deposit Clustering Engine<br/>Binance, Coinbase, OKX Attribution"]:::extStyle
     end
 
-    AppRouter <-->|"Redis Protocol / openCypher (Port 6379)"| FalkorCore
+    subgraph Tier_Compute ["Tier 4: Serverless Forensic API Mesh (Next.js 16 App Router)"]
+        direction LR
+        APITrace["/api/trace<br/>Multi-Hop Subgraph Expander"]:::computeStyle
+        APIInvestigate["/api/investigate<br/>Autonomous Wallet Scoring API"]:::computeStyle
+        APIChat["/api/chat<br/>Natural Language to Cypher API"]:::computeStyle
+        APIMitigate["/api/mitigate<br/>Blacklist & Alert Action API"]:::computeStyle
+        APIReport["/api/report<br/>Cryptographic Dossier Export API"]:::computeStyle
+    end
 
-    subgraph Tier_Agent ["Autonomous AI Forensic Agent & MCP Tool Mesh"]
+    subgraph Tier_Agent ["Tier 5: Autonomous AI Forensic Agent & Cognitive Loop"]
         direction TB
-        AgentCore["Autonomous AI Forensic Agent<br/>Contextual Graph Reasoning & Execution Engine"]:::agentStyle
-
-        subgraph MCPToolRegistry ["Model Context Protocol (MCP) Tool Suite"]
+        AgentCore["Autonomous AI Forensic Agent<br/>Contextual Graph Reasoning & Execution Loop"]:::agentStyle
+        
+        subgraph CognitiveEngines ["Agent Analytical Engines"]
             direction LR
-            MCPTrace["mcp_trace_subgraph<br/>Variable Hop Exploration"]:::mcpStyle
-            MCPScore["mcp_score_wallet<br/>Multi-Factor Risk Scoring"]:::mcpStyle
-            MCPPattern["mcp_find_patterns<br/>Topological Cypher Querying"]:::mcpStyle
-            MCPMitigate["mcp_execute_mitigation<br/>Automated Blacklist Engine"]:::mcpStyle
+            HypothesisEngine["Hypothesis Engine<br/>Typology Pattern Detection"]:::agentStyle
+            TaintEngine["Taint Decay Engine<br/>Conservation-of-Flow Calculus"]:::agentStyle
+            VelocityEngine["Velocity Engine<br/>Holding-Time & Burst Analyzer"]:::agentStyle
         end
-
-        AgentCore <--> MCPToolRegistry
-        MCPToolRegistry <--> CypherEngine
+        AgentCore <--> CognitiveEngines
     end
 
-    AppRouter <-->|"Trigger Autonomous Investigation"| AgentCore
-
-    subgraph Tier_Output ["Actionable Remediation & Court-Ready Legal Dossier Tier"]
+    subgraph Tier_MCP ["Tier 6: Model Context Protocol (MCP) Tool Suite"]
         direction LR
-        DossierView["Printable Legal Evidence Dossier<br/>Cryptographic Hashes & Audit Trail"]:::reportStyle
-        MitigationBus["Automated Mitigation Action<br/>On-Chain Blacklist & Exchange Freezes"]:::reportStyle
+        MCPTrace["mcp_trace_subgraph<br/>Variable Hop Exploration (1..6)"]:::mcpStyle
+        MCPScore["mcp_score_wallet<br/>Multi-Factor Risk Scoring"]:::mcpStyle
+        MCPPattern["mcp_find_patterns<br/>Topological Cypher Querying"]:::mcpStyle
+        MCPMitigate["mcp_execute_mitigation<br/>Automated Blacklist Engine"]:::mcpStyle
     end
 
-    AgentCore --> DossierView
-    AgentCore --> MitigationBus
+    subgraph Tier_FalkorDB ["Tier 7: FalkorDB Graph Engine & GraphBLAS Acceleration Core"]
+        direction TB
+        FalkorClient["FalkorDB Client Connection<br/>Redis Protocol • TCP Port 6379"]:::falkorStyle
+        MultigraphRouter["Multigraph Case Router<br/>Isolated Graphs per Investigation"]:::falkorStyle
+        CypherEngine["openCypher Execution Core<br/>Cost-Based Query Optimizer"]:::falkorStyle
+        GraphBLASCore[("GraphBLAS Sparse Matrix Algebra<br/>SpGEMM Linear Algebra Acceleration")]:::falkorStyle
+        GraphStore[("In-Memory Property Graph Store<br/>Sub-4ms Traversal Adjacency Matrices")]:::falkorStyle
 
-    style Tier_Presentation fill:#0A0F1D,stroke:#38BDF8,stroke-width:1.5px,color:#94A3B8
-    style Tier_Compute fill:#0F172A,stroke:#60A5FA,stroke-width:1.5px,color:#CBD5E1
-    style Tier_FalkorDB fill:#1F0914,stroke:#FB7185,stroke-width:2px,color:#FECDD3
-    style Tier_Agent fill:#0B132B,stroke:#818CF8,stroke-width:1.5px,color:#C7D2FE
-    style MCPToolRegistry fill:#1E1035,stroke:#A855F7,stroke-width:1.5px,color:#E9D5FF
-    style Tier_Output fill:#022C22,stroke:#10B981,stroke-width:1.5px,color:#A7F3D0
+        FalkorClient <--> MultigraphRouter
+        MultigraphRouter <--> CypherEngine
+        CypherEngine <--> GraphBLASCore
+        GraphBLASCore <--> GraphStore
+    end
+
+    subgraph Tier_Output ["Tier 8: Actionable Remediation, Legal Dossier & Evidence Tier"]
+        direction LR
+        DossierRenderer["ForensicReportDossier<br/>Printable Court-Ready Legal Dossier"]:::reportStyle
+        SHA256Engine["SHA-256 Checksum Engine<br/>Cryptographic Evidence Signature"]:::reportStyle
+        MitigationBus["Automated Mitigation Bus<br/>On-Chain Blacklist & Exchange Freezes"]:::reportStyle
+        LEExport["Law Enforcement Export<br/>JSON / CSV / PDF Data Packages"]:::reportStyle
+    end
+
+    %% Client Interactions
+    Analyst <-->|"Interacts with Workbench & Canvas"| CanvasEngine
+    Analyst <-->|"Queries Forensic Copilot"| CopilotHUD
+    CanvasEngine <--> StateStore
+    Workbench <--> StateStore
+    AuditLedger <--> StateStore
+    TelemetryFeed <--> StateStore
+
+    %% Presentation to Edge
+    StateStore <-->|"HTTPS / Reactive State Sync"| VercelEdge
+
+    %% Edge to Compute
+    NextTurbopack <-->|"Routes Ingress"| Tier_Compute
+
+    %% External Intelligence to Compute
+    Tier_External <-->|"Data Ingestion & Sanction Checks"| Tier_Compute
+
+    %% Compute to Agent
+    APIInvestigate <-->|"Dispatches Autonomous Triage"| AgentCore
+    APIChat <-->|"Processes Natural Language Prompts"| AgentCore
+
+    %% Agent to MCP
+    AgentCore <-->|"Dispatches Standardized Tools"| Tier_MCP
+
+    %% MCP to FalkorDB
+    Tier_MCP <-->|"Executes openCypher Queries"| FalkorClient
+    APITrace <-->|"Sub-4ms Path Traversal"| FalkorClient
+
+    %% Agent & Compute to Output
+    AgentCore -->|"Synthesizes Findings"| DossierRenderer
+    APIMitigate -->|"Dispatches Action"| MitigationBus
+    APIReport -->|"Generates Verification Proof"| SHA256Engine
+    SHA256Engine --> DossierRenderer
+    DossierRenderer --> LEExport
+
+    %% Output Back to Client
+    DossierRenderer -.->|"Delivers Printable Evidence to Analyst"| Analyst
+
+    %% Style Subgraphs
+    style Tier_Presentation fill:#070C18,stroke:#38BDF8,stroke-width:1.5px,color:#94A3B8
+    style Tier_Edge fill:#0A1128,stroke:#60A5FA,stroke-width:1.5px,color:#CBD5E1
+    style Tier_External fill:#1C1005,stroke:#FBBF24,stroke-width:1.5px,color:#FDE68A
+    style Tier_Compute fill:#071426,stroke:#38BDF8,stroke-width:1.5px,color:#93C5FD
+    style Tier_Agent fill:#0E0E2C,stroke:#818CF8,stroke-width:1.5px,color:#C7D2FE
+    style CognitiveEngines fill:#151538,stroke:#6366F1,stroke-width:1px,color:#E0E7FF
+    style Tier_MCP fill:#1C0A35,stroke:#C084FC,stroke-width:1.5px,color:#E9D5FF
+    style Tier_FalkorDB fill:#1F0610,stroke:#FB7185,stroke-width:2px,color:#FECDD3
+    style Tier_Output fill:#02231A,stroke:#34D399,stroke-width:1.5px,color:#A7F3D0
 ```
 
 ---
 
-### High-Level System Tier Matrix
+### Comprehensive 8-Tier System Architecture Matrix
 
-| Tier | Component | Technology / Service | Responsibility |
-| :--- | :--- | :--- | :--- |
-| **Presentation Tier** | Interactive Command Center | React 19, Tailwind CSS v4, HTML5 Canvas | Renders 2D/3D force-directed interactive graph with physics, real-time node filtering, and forensic metric HUDs. |
-| **Edge & Ingress Tier** | Global Edge CDN & SSL | **Vercel Edge Network** | Delivers sub-100ms global static asset delivery, SSL termination, and automated Git-driven deployments. |
-| **Compute & API Tier** | Serverless Forensic Engine | Next.js 16 (App Router / SSR) | Powers high-throughput API endpoints (`/api/trace`, `/api/investigate`, `/api/mitigate`, `/api/report`, `/api/chat`). |
-| **Graph Database Tier** | In-Memory Graph Core | **FalkorDB** (GraphBLAS Engine) | High-speed sparse matrix linear algebra execution delivering sub-4ms multi-hop traversals over Redis protocol. |
-| **Query Engine** | openCypher Interface | FalkorDB Cypher Engine | Evaluates variable-length paths (`[:TRANSFERRED*1..6]`), aggregation functions, and pattern-matching expressions. |
-| **Agentic Protocol** | Model Context Protocol (MCP) | Custom MCP Tool Engine | Exposes graph tools (`mcp_trace_subgraph`, `mcp_score_wallet`, etc.) allowing the autonomous agent to query FalkorDB dynamically. |
-| **Autonomous Agent Tier** | Autonomous Forensic Agent | Single Autonomous Agent Engine | Orchestrates graph traversal, risk scoring, pattern discovery, and court-ready dossier synthesis via MCP tools. |
-| **Remediation & Legal** | Forensic Dossier Engine | Client-Side PDF Renderer & Crypto Hashes | Generates court-admissible forensic evidence packages with cryptographic SHA-256 hashes and chain-of-custody timestamps. |
+| # | Architecture Tier | Primary Components & Files | Technologies & Protocols | Core Responsibility in Casper |
+| :-: | :--- | :--- | :--- | :--- |
+| **1** | **Presentation & Spatial Canvas** | `InteractiveGraphCanvas.tsx`<br/>`WalletInvestigatorWorkbench.tsx`<br/>`TraceLedgerTable.tsx`<br/>`AgentChatCopilot.tsx`<br/>`AgentActivityFeed.tsx` | React 19, HTML5 Canvas 2D/3D Context, Tailwind CSS v4, Framer Motion, Zustand | Renders dynamic force-directed physics graph with live particle money streams at 60 FPS, multi-hop audit ledgers, real-time agent telemetry stream, and conversational forensic copilot. |
+| **2** | **Edge & Ingress Gateway** | Vercel Edge Global Network<br/>Next.js 16 Middleware | Anycast CDN, HTTP/3, TLS 1.3 Termination, Edge Caching | Delivers sub-100ms global asset delivery, SSL termination, edge route middleware, session rate limiting, and zero-downtime CI/CD deployment. |
+| **3** | **Threat Intelligence Ingestion** | Etherscan Ingestor<br/>OFAC SDN Registry<br/>CEX Deposit Clustering Engine | REST APIs, Etherscan v2 API, OFAC SDN Sanctions Database | Ingests real-time raw Ethereum blockchain transfers, checks wallet addresses against global sanctions lists, and resolves unverified addresses to known CEX deposit pools. |
+| **4** | **Serverless API Mesh** | `/api/trace`<br/>`/api/investigate`<br/>`/api/chat`<br/>`/api/mitigate`<br/>`/api/report` | Next.js 16 Serverless App Router, Node.js runtime, Turbopack | High-throughput serverless endpoints handling multi-hop graph expansion, autonomous wallet triage, natural language Cypher generation, and mitigation execution. |
+| **5** | **Autonomous Forensic Agent** | `AgentCore`<br/>`HypothesisEngine`<br/>`TaintEngine`<br/>`VelocityEngine` | Single Autonomous Agent Cognitive Loop, TypeScript, Prompt Engineering | Performs contextual graph reasoning, calculates mathematical taint decay across hops, evaluates rapid-relay burst velocity (<300s), and formulates investigative conclusions. |
+| **6** | **Model Context Protocol (MCP)** | `mcp_trace_subgraph`<br/>`mcp_score_wallet`<br/>`mcp_find_patterns`<br/>`mcp_execute_mitigation` | Anthropic Model Context Protocol (MCP) Standard, JSON-RPC | Exposes standardized, tool-called graph functions allowing the autonomous AI agent to query FalkorDB dynamically as active context memory. |
+| **7** | **Graph Database Core (FalkorDB)** | `falkorClient.ts`<br/>`seedData.ts`<br/>openCypher Engine<br/>GraphBLAS Acceleration Core | **FalkorDB v2.10**, Redis Protocol (TCP 6379), openCypher, GraphBLAS SpGEMM Engine | High-speed sparse matrix linear algebra execution delivering sub-4ms multi-hop traversals over Redis protocol. Manages isolated case graphs (`case_pig_butchering`, `case_lazarus_bridge`, etc.). |
+| **8** | **Remediation & Legal Dossier** | `ForensicReportDossier.tsx`<br/>SHA-256 Engine<br/>Mitigation Action Bus | Web Crypto API, Client-Side Print Renderer, Cryptographic Hashes | Compiles court-ready, printable forensic evidence packages stamped with immutable SHA-256 hashes, statutory references (BSA/AML), and automated exchange freeze notices. |
 
 ---
 
