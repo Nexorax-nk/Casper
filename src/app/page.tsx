@@ -7,7 +7,25 @@ import { AgentActivityFeed } from "@/components/AgentActivityFeed";
 import { AgentChatCopilot } from "@/components/AgentChatCopilot";
 import { ForensicReportDossier } from "@/components/ForensicReportDossier";
 import { WalletInvestigatorWorkbench } from "@/components/WalletInvestigatorWorkbench";
-import { InvestigationCommandCenter } from "@/components/InvestigationCommandCenter";
+import dynamic from "next/dynamic";
+
+const InvestigationCommandCenter = dynamic(
+  () =>
+    import("@/components/InvestigationCommandCenter").then(
+      (mod) => mod.InvestigationCommandCenter
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-full w-full px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center justify-center space-y-3 bg-[#F8FAFC]">
+        <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+        <span className="text-xs font-mono text-slate-500 font-medium">
+          Loading Casper Command Center...
+        </span>
+      </div>
+    ),
+  }
+);
 import {
   ForensicCase,
   WalletNode,
@@ -48,6 +66,16 @@ export default function Home() {
   const [hasExplorerInvestigated, setHasExplorerInvestigated] = useState<boolean>(false);
 
   useEffect(() => {
+    // Check real FalkorDB engine status
+    fetch("/api/ingest")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.engine?.isConnected) {
+          setFalkorSource(`FalkorDB v2.10 (Live • ${data.engine.graphName})`);
+        }
+      })
+      .catch(() => {});
+
     runInvestigation(activeCase.id);
   }, []);
 

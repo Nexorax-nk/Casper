@@ -314,7 +314,13 @@ export const WalletInvestigatorWorkbench: React.FC<
     // Dynamic natural processing duration (~3.8s to 4.4s) based on live network & graph traversal
     const naturalDurationMs = 3800 + Math.floor(Math.random() * 600);
 
-    // Fire actual investigation in background so data is ready when ingestion finishes
+    // Fire real FalkorDB ingestion and investigation in background
+    const ingestionPromise = fetch("/api/ingest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "ingest_wallet", address: addressToQuery }),
+    }).catch((err) => console.warn("[Casper] Ingestion warning:", err));
+
     const investigationPromise = onRunInvestigation(addressToQuery);
 
     const interval = setInterval(() => {
@@ -362,7 +368,7 @@ export const WalletInvestigatorWorkbench: React.FC<
         setActivationProgress(100);
         setActivationStep(5);
         setTimeout(async () => {
-          await investigationPromise;
+          await Promise.all([ingestionPromise, investigationPromise]);
           setIsActivatingFalkor(false);
           setHasInvestigated(true);
         }, 350);
@@ -485,24 +491,23 @@ ORDER BY pathVolume DESC;`;
           {/* Hero Header */}
           <div className="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-3.5">
-                <div className="p-3 rounded-xl bg-slate-900 text-emerald-400 shadow-sm flex-shrink-0">
-                  <ShieldAlert className="w-6 h-6 text-emerald-400" />
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-emerald-400 shadow-sm flex-shrink-0">
+                  <ShieldAlert className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase tracking-wider font-mono">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      FalkorDB Graph Forensics Pipeline • Ready
+                      FalkorDB Graph Pipeline
                     </span>
-                    <span className="text-xs text-slate-400">• Standby</span>
+                    <span className="text-[11px] font-mono text-slate-400 font-medium">• Active</span>
                   </div>
                   <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight font-sans">
                     Crypto Wallet Forensics & Graph Intelligence
                   </h1>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-                    Upload a wallet address file, paste any Ethereum or Solana address, or pick a sample syndicate node.
-                    Click <strong className="text-slate-800">"Investigate & Activate FalkorDB"</strong> to stream live blockchain details, update FalkorDB, and open the 6-part forensic investigation dossier.
+                  <p className="text-xs sm:text-sm text-slate-500 mt-0.5 max-w-xl">
+                    Multi-hop transaction tracing and autonomous syndicate detection powered by FalkorDB.
                   </p>
                 </div>
               </div>
@@ -716,10 +721,12 @@ ORDER BY pathVolume DESC;`;
           {/* Sample Presets Grid */}
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-emerald-600" />
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  Or Click a Sample Forensic Target in FalkorDB (Pre-Indexed Nodes)
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-emerald-400 shadow-inner flex-shrink-0">
+                  <Database className="w-3.5 h-3.5 text-emerald-400" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">
+                  Sample Forensic Targets in FalkorDB (Pre-Indexed Nodes)
                 </h3>
               </div>
               <span className="text-xs text-slate-500">
@@ -733,49 +740,78 @@ ORDER BY pathVolume DESC;`;
                   selectedPresetIndex === idx ||
                   inputAddress.toLowerCase() === preset.address.toLowerCase();
 
+                const getRiskBadgeStyle = () => {
+                  if (preset.risk >= 85) {
+                    return "bg-rose-950/70 text-rose-400 border-rose-500/40 shadow-[0_0_10px_rgba(244,63,94,0.18)]";
+                  }
+                  if (preset.risk >= 70) {
+                    return "bg-amber-950/70 text-amber-400 border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.18)]";
+                  }
+                  if (preset.risk >= 50) {
+                    return "bg-sky-950/70 text-sky-400 border-sky-500/40 shadow-[0_0_10px_rgba(56,189,248,0.18)]";
+                  }
+                  return "bg-emerald-950/70 text-emerald-400 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.18)]";
+                };
+
+                const isCopied = copiedText === preset.address;
+
                 return (
                   <div
                     key={idx}
                     onClick={() => handleSelectPreset(idx)}
-                    className={`clean-card p-4 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
+                    className={`p-4 sm:p-4.5 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col justify-between group overflow-hidden ${
                       isSelected
-                        ? "border-emerald-500 bg-emerald-50/30 ring-2 ring-emerald-500/20 shadow-sm"
-                        : "border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/50"
+                        ? "border-emerald-500/90 bg-[#121B2E] ring-2 ring-emerald-500/40 shadow-[0_0_24px_rgba(16,185,129,0.22)]"
+                        : "border-slate-800/90 bg-[#0B0F19] hover:border-slate-700 hover:bg-[#101726] shadow-[0_4px_20px_rgba(0,0,0,0.35)]"
                     }`}
                   >
                     <div>
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 uppercase tracking-wider">
+                      {/* Top Badges */}
+                      <div className="flex items-center justify-between gap-2 mb-2.5">
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/80 uppercase tracking-wider">
                           {preset.role}
                         </span>
                         <span
-                          className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                            preset.risk >= 80
-                              ? "bg-rose-100 text-rose-700"
-                              : preset.risk >= 50
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-emerald-100 text-emerald-700"
-                          }`}
+                          className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${getRiskBadgeStyle()}`}
                         >
                           Risk: {preset.risk}/100 [{preset.riskLevel}]
                         </span>
                       </div>
 
-                      <h4 className="text-sm font-extrabold text-slate-900 font-sans">
+                      {/* Title */}
+                      <h4 className="text-sm font-extrabold text-white group-hover:text-emerald-300 transition-colors font-sans mt-1">
                         {preset.label}
                       </h4>
 
-                      <div className="font-mono text-[11px] text-slate-600 bg-slate-50 px-2 py-1 rounded-md border border-slate-200 mt-2 truncate font-semibold">
-                        {preset.address}
+                      {/* Monospace Address Pill with Copy button */}
+                      <div className="font-mono text-[11px] text-emerald-400 bg-[#070A12] px-2.5 py-1.5 rounded-lg border border-slate-800/90 mt-2.5 flex items-center justify-between gap-2 shadow-inner">
+                        <span className="truncate">{preset.address}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyToClipboard(preset.address);
+                          }}
+                          title={isCopied ? "Copied!" : "Copy Address"}
+                          className="p-1 rounded text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer flex-shrink-0"
+                        >
+                          {isCopied ? (
+                            <Check className="w-3 h-3 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
                       </div>
 
-                      <p className="text-[11px] text-slate-500 mt-2 leading-relaxed line-clamp-2">
+                      {/* Description */}
+                      <p className="text-[11px] text-slate-300/90 mt-2.5 leading-relaxed line-clamp-2 font-normal">
                         {preset.description}
                       </p>
                     </div>
 
-                    <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                    {/* Bottom Action Footer */}
+                    <div className="pt-3 mt-3.5 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-mono font-bold text-slate-300 bg-slate-800/90 px-2 py-0.5 rounded border border-slate-700/80 truncate">
                         {preset.tag}
                       </span>
                       <button
@@ -785,10 +821,10 @@ ORDER BY pathVolume DESC;`;
                           handleSelectPreset(idx);
                           handleStartInvestigation(preset.address);
                         }}
-                        className="flex items-center gap-1 text-xs font-bold text-slate-900 hover:text-emerald-700 bg-slate-100 hover:bg-emerald-50 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors"
+                        className="flex items-center gap-1.5 text-xs font-bold text-white bg-slate-800 hover:bg-emerald-600 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-emerald-500 transition-all shadow-xs cursor-pointer active:scale-95 group/btn flex-shrink-0"
                       >
                         <span>Investigate</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
+                        <ChevronRight className="w-3.5 h-3.5 text-emerald-400 group-hover/btn:text-white group-hover/btn:translate-x-0.5 transition-transform" />
                       </button>
                     </div>
                   </div>

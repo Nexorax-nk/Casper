@@ -61,6 +61,11 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
 }) => {
   const [walletInput, setWalletInput] = useState<string>("");
   const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Real store states initialized from persistent investigation models
   const [savedInvestigations, setSavedInvestigations] = useState<SavedInvestigation[]>(
@@ -140,8 +145,20 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
     onNavigateTab("reasoning");
   };
 
+  if (!mounted) {
+    return (
+      <div className="min-h-full w-full px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center justify-center space-y-3 bg-[#F8FAFC]">
+        <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+        <span className="text-xs font-mono text-slate-500 font-medium">
+          Loading Casper Command Center...
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div
+      suppressHydrationWarning
       className="min-h-full w-full px-4 sm:px-6 lg:px-8 py-5 flex flex-col justify-between space-y-5 transition-all"
       style={{
         backgroundColor: "#F8FAFC",
@@ -428,56 +445,61 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
             </div>
           </div>
 
-          {/* Section 3: Recent Activity (Operational Timeline) (5 Columns) */}
-          <div className="lg:col-span-5 bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col justify-between h-full">
+          {/* Section 3: Recent Activity (Operational Timeline) (5 Columns) - Black Cyber Theme */}
+          <div className="lg:col-span-5 bg-[#0B0F19] rounded-2xl p-5 sm:p-6 border border-slate-800/90 shadow-[0_4px_24px_rgba(0,0,0,0.35)] flex flex-col justify-between h-full text-white">
             <div>
               {/* Header */}
-              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 mb-4">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block mb-0.5">
-                    OPERATIONAL TIMELINE
-                  </span>
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight font-sans">
-                    Recent activity
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    A timeline of real investigation and report events.
-                  </p>
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-800/80 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/80 flex items-center justify-center text-emerald-400 shadow-inner flex-shrink-0">
+                    <Activity className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block mb-0.5 font-mono">
+                      OPERATIONAL TIMELINE
+                    </span>
+                    <h3 className="text-base sm:text-lg font-bold text-white tracking-tight font-sans">
+                      Recent activity
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      A timeline of real investigation and report events.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-700 flex-shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-[11px] font-semibold text-emerald-400 flex-shrink-0 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   <span>Live Stream</span>
                 </div>
               </div>
 
               {/* Connected Vertical Timeline Rail */}
-              <div className="relative pl-6 space-y-3.5 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-200/80">
+              <div className="relative pl-6 space-y-3.5 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-800/90">
                 {activities.map((act) => {
                   const getMarkerStyle = () => {
                     switch (act.type) {
                       case "INVESTIGATION_STARTED":
                         return {
-                          bg: "bg-emerald-50 text-emerald-600 border-emerald-200",
+                          bg: "bg-[#091717] text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.25)]",
                           icon: <Play className="w-2.5 h-2.5 fill-current" />,
                         };
                       case "GRAPH_ANALYZED":
                         return {
-                          bg: "bg-blue-50 text-blue-600 border-blue-200",
+                          bg: "bg-[#0A1329] text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.25)]",
                           icon: <Layers className="w-2.5 h-2.5" />,
                         };
                       case "FINDINGS_REVIEWED":
                         return {
-                          bg: "bg-amber-50 text-amber-600 border-amber-200",
+                          bg: "bg-[#1E1305] text-amber-400 border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.25)]",
                           icon: <AlertTriangle className="w-2.5 h-2.5" />,
                         };
                       case "REPORT_GENERATED":
                         return {
-                          bg: "bg-purple-50 text-purple-600 border-purple-200",
+                          bg: "bg-[#1A0A2E] text-purple-400 border-purple-500/40 shadow-[0_0_8px_rgba(192,132,252,0.25)]",
                           icon: <FileText className="w-2.5 h-2.5" />,
                         };
                       default:
                         return {
-                          bg: "bg-slate-50 text-slate-600 border-slate-200",
+                          bg: "bg-slate-900 text-slate-400 border-slate-700",
                           icon: <Activity className="w-2.5 h-2.5" />,
                         };
                     }
@@ -489,19 +511,19 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
                     <div key={act.id} className="relative flex items-start gap-3 group">
                       {/* Marker Node on the vertical line */}
                       <div
-                        className={`absolute -left-6 top-0.5 w-[22px] h-[22px] rounded-full border flex items-center justify-center bg-white shadow-xs transition-transform group-hover:scale-110 ${marker.bg}`}
+                        className={`absolute -left-6 top-0.5 w-[22px] h-[22px] rounded-full border flex items-center justify-center shadow-xs transition-transform group-hover:scale-110 ${marker.bg}`}
                       >
                         {marker.icon}
                       </div>
 
                       {/* Timeline event content */}
-                      <div className="flex-1 space-y-1 bg-slate-50/60 hover:bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 transition-colors">
+                      <div className="flex-1 space-y-1 bg-[#111726]/90 hover:bg-[#161F33] p-3 rounded-xl border border-slate-800/80 hover:border-slate-700/80 transition-all shadow-xs">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-xs text-slate-900 group-hover:text-emerald-700 transition-colors">
+                            <span className="font-bold text-xs text-white group-hover:text-emerald-300 transition-colors">
                               {act.title}
                             </span>
-                            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-200/70 text-slate-600">
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/70">
                               {act.caseId}
                             </span>
                           </div>
@@ -509,7 +531,7 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
                             {act.timestamp}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
+                        <p className="text-[11px] text-slate-300 leading-relaxed font-normal">
                           {act.description}
                         </p>
                       </div>
@@ -520,12 +542,12 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
             </div>
 
             {/* Bottom Status / Telemetry Strip to anchor the card */}
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+              <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 FalkorDB Engine Synced
               </span>
-              <span>{activities.length} Recorded Milestones</span>
+              <span className="text-slate-400">{activities.length} Recorded Milestones</span>
             </div>
           </div>
         </div>

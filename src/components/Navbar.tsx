@@ -157,7 +157,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="hidden xl:flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-semibold text-slate-800">FalkorDB Graph</span>
+            <span className="font-semibold text-slate-800">
+              {falkorSource.includes("Live") ? "FalkorDB Live" : "FalkorDB Graph"}
+            </span>
             <span className="text-slate-300">•</span>
             <span className="font-mono text-slate-600">38ms</span>
             <span className="text-slate-300">•</span>
