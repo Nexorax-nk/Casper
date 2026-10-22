@@ -41,9 +41,12 @@ import {
 } from "@/lib/falkordb/seedData";
 import {
   BrainCircuit,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 
 export default function Home() {
+  const [mounted, setMounted] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
@@ -64,6 +67,12 @@ export default function Home() {
     "FalkorDB v2.10 (Cypher Graph Engine)"
   );
   const [hasExplorerInvestigated, setHasExplorerInvestigated] = useState<boolean>(false);
+  const [hasIngestedReport, setHasIngestedReport] = useState<boolean>(false);
+  const [investigationError, setInvestigationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     // Check real FalkorDB engine status
@@ -100,6 +109,7 @@ export default function Home() {
 
   const runInvestigation = async (caseIdOrAddress: string) => {
     setIsInvestigating(true);
+    setInvestigationError(null);
 
     try {
       const res = await fetch("/api/investigate", {
@@ -108,7 +118,14 @@ export default function Home() {
         body: JSON.stringify({ caseId: caseIdOrAddress }),
       });
 
-      if (!res.ok) throw new Error("Investigation request failed");
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        const errorMsg =
+          errorJson.message ||
+          "Investigation request rejected: Target cryptocurrency address is invalid or malformed.";
+        setInvestigationError(errorMsg);
+        throw new Error(errorMsg);
+      }
 
       const data: AgentInvestigationResult = await res.json();
       setInvestigationData(data);
@@ -122,7 +139,7 @@ export default function Home() {
           c.id === caseIdOrAddress ||
           c.targetWallet.toLowerCase() === caseIdOrAddress.toLowerCase()
       );
-      if (matchedCase) setActiveCase(matchedCase);
+      setActiveCase(matchedCase || data.caseInfo);
     } catch (err) {
       console.error("[Casper] Failed to fetch investigation:", err);
     } finally {
@@ -132,20 +149,40 @@ export default function Home() {
 
   const handleSelectCase = (selectedCase: ForensicCase) => {
     setActiveCase(selectedCase);
+    setHasIngestedReport(true);
+    setHasExplorerInvestigated(true);
     runInvestigation(selectedCase.id);
   };
 
-  const tracedVolumeUsd = 144310;
+  const tracedVolumeUsd =
+    edges.length > 0
+      ? edges.reduce((acc, e) => acc + (e.amountUsd || 0), 0)
+      : activeCase.reportedLossUsd || 144310;
   const overallRiskScore = activeCase.riskScore;
 
+  if (!mounted) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#F8FAFC]">
+        <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen flex flex-col bg-[#F8FAFC] text-slate-900 font-sans selection:bg-emerald-500/20 selection:text-emerald-900 overflow-hidden">
+    <div
+      suppressHydrationWarning
+      className="h-screen flex flex-col bg-[#F8FAFC] text-slate-900 font-sans selection:bg-emerald-500/20 selection:text-emerald-900 overflow-hidden"
+    >
       {/* Top Navbar */}
       <Navbar
         cases={cases}
         activeCase={activeCase}
         onSelectCase={handleSelectCase}
-        onRunInvestigation={(query) => runInvestigation(query || activeCase.id)}
+        onRunInvestigation={(query) => {
+          setHasIngestedReport(true);
+          setHasExplorerInvestigated(true);
+          runInvestigation(query || activeCase.id);
+        }}
         isInvestigating={isInvestigating}
         falkorSource={falkorSource}
       />
@@ -162,6 +199,7 @@ export default function Home() {
           walletsCount={nodes.length}
           transfersCount={edges.length}
           activeCase={activeCase}
+          isWalletIngested={hasIngestedReport}
         />
 
         {/* Focused Active Viewport */}
@@ -179,6 +217,29 @@ export default function Home() {
             backgroundSize: "32px 32px",
           }}
         >
+          {/* Global Target Address Error Alert */}
+          {investigationError && (
+            <div className="mx-4 sm:mx-6 lg:mx-8 my-4 p-4 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-center justify-between shadow-sm animate-in fade-in duration-200">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+                <div className="space-y-0.5">
+                  <span className="font-extrabold uppercase tracking-wide text-rose-950 block text-[11px]">
+                    Invalid Target Cryptocurrency Address
+                  </span>
+                  <p className="text-rose-700 font-sans">{investigationError}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInvestigationError(null)}
+                className="p-1 rounded-lg text-rose-500 hover:text-rose-800 hover:bg-rose-100 transition-colors cursor-pointer ml-3 flex-shrink-0"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* ==================== VIEW 1: INVESTIGATION COMMAND CENTER ==================== */}
           {activeTab === "dashboard" && (
             <InvestigationCommandCenter
@@ -193,6 +254,7 @@ export default function Home() {
               edgesCount={edges.length}
               onAnalyzeWallet={(query) => {
                 setHasExplorerInvestigated(true);
+                setHasIngestedReport(true);
                 runInvestigation(query || activeCase.targetWallet);
               }}
             />
@@ -207,6 +269,7 @@ export default function Home() {
               onSelectNode={setSelectedNode}
               onRunInvestigation={async (addr) => {
                 setHasExplorerInvestigated(true);
+                setHasIngestedReport(true);
                 await runInvestigation(addr);
               }}
               isInvestigating={isInvestigating}
@@ -214,7 +277,10 @@ export default function Home() {
               onMaxHopsChange={setMaxHops}
               activeCase={activeCase}
               initialHasInvestigated={hasExplorerInvestigated}
-              onResetInvestigation={() => setHasExplorerInvestigated(false)}
+              onResetInvestigation={() => {
+                setHasExplorerInvestigated(false);
+                setHasIngestedReport(false);
+              }}
             />
           )}
 
@@ -227,11 +293,11 @@ export default function Home() {
                 </span>
                 <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight font-sans flex items-center gap-2">
                   <BrainCircuit className="w-5 h-5 text-emerald-600" />
-                  AI Forensics & FalkorDB Cypher Trace
+                  AI Forensics &amp; FalkorDB Cypher Trace
                 </h2>
                 <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
                   <span className="text-emerald-700 font-semibold">FalkorDB Engine:</span>
-                  <span>Autonomous Cypher chain-of-thought, peel-chain heuristics & forensic path reasoning</span>
+                  <span>Autonomous Cypher chain-of-thought, peel-chain heuristics &amp; forensic path reasoning</span>
                 </div>
               </div>
 
@@ -259,11 +325,21 @@ export default function Home() {
                 caseInfo={activeCase}
                 riskFactors={riskFactors}
                 targetWallet={
-                  nodes.find((n) => n.id === activeCase.targetWallet) || nodes[0]
+                  nodes.find((n) => n.id.toLowerCase() === activeCase.targetWallet.toLowerCase()) ||
+                  nodes.find((n) => n.category === "scam_source") ||
+                  nodes[0]
                 }
                 tracedVolumeUsd={tracedVolumeUsd}
                 nodes={nodes}
                 edges={edges}
+                hasIngested={hasIngestedReport}
+                onIngestWallet={async (addr) => {
+                  setHasIngestedReport(true);
+                  setHasExplorerInvestigated(true);
+                  await runInvestigation(addr);
+                }}
+                isIngesting={isInvestigating}
+                onResetReport={() => setHasIngestedReport(false)}
               />
             </div>
           )}

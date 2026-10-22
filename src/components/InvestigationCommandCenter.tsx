@@ -13,6 +13,7 @@ import {
   INITIAL_INVESTIGATION_ACTIVITIES,
   INITIAL_EVIDENCE_REPORTS,
 } from "../lib/investigationStore";
+import { getAddressValidationError } from "../lib/validators";
 import {
   Search,
   ArrowRight,
@@ -60,6 +61,7 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
   onAnalyzeWallet,
 }) => {
   const [walletInput, setWalletInput] = useState<string>("");
+  const [addressError, setAddressError] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [mounted, setMounted] = useState<boolean>(false);
 
@@ -101,6 +103,14 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
     e.preventDefault();
     const query = walletInput.trim();
     if (!query) return;
+
+    // Validate crypto address format
+    const validationErrorMsg = getAddressValidationError(query);
+    if (validationErrorMsg) {
+      setAddressError(validationErrorMsg);
+      return;
+    }
+    setAddressError(null);
 
     // Record new investigation into real saved records
     const newCaseId = `CASE-TRX-00${savedInvestigations.length + 1}`;
@@ -207,13 +217,26 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
           <div className="space-y-2 pt-1">
             <form
               onSubmit={handleAnalyzeSubmit}
-              className="w-full flex items-center h-12 sm:h-13 bg-slate-50/90 hover:bg-slate-50 focus-within:bg-white border-2 border-slate-200/90 focus-within:border-emerald-500 rounded-xl px-3.5 transition-all shadow-xs group"
+              className={`w-full flex items-center h-12 sm:h-13 bg-slate-50/90 hover:bg-slate-50 focus-within:bg-white border-2 rounded-xl px-3.5 transition-all shadow-xs group ${
+                addressError
+                  ? "border-rose-400 focus-within:border-rose-500 bg-rose-50/20"
+                  : "border-slate-200/90 focus-within:border-emerald-500"
+              }`}
             >
-              <Search className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-focus-within:text-emerald-600 mr-2.5 flex-shrink-0 transition-colors" />
+              <Search
+                className={`w-4 h-4 sm:w-5 sm:h-5 mr-2.5 flex-shrink-0 transition-colors ${
+                  addressError
+                    ? "text-rose-500"
+                    : "text-slate-400 group-focus-within:text-emerald-600"
+                }`}
+              />
               <input
                 type="text"
                 value={walletInput}
-                onChange={(e) => setWalletInput(e.target.value)}
+                onChange={(e) => {
+                  setWalletInput(e.target.value);
+                  if (addressError) setAddressError(null);
+                }}
                 placeholder="Enter suspicious wallet address (0x...) or transaction hash to analyze..."
                 className="flex-1 min-w-0 bg-transparent text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm font-mono focus:outline-none"
               />
@@ -226,6 +249,27 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
               </button>
             </form>
 
+            {/* Invalid Address Error Banner */}
+            {addressError && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-start gap-3 animate-in fade-in duration-150 shadow-xs">
+                <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1 flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-rose-900 uppercase tracking-wide text-[11px]">
+                      Invalid Wallet Address
+                    </span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-200/90 text-rose-900 font-bold">
+                      Format Rejected
+                    </span>
+                  </div>
+                  <p className="text-rose-700 leading-relaxed font-sans">{addressError}</p>
+                  <p className="text-[11px] text-rose-600/90 font-mono">
+                    Expected format: <span className="font-bold underline">0x71c828d132924c5e39b7038e219b25e7144e5973</span> (42 characters starting with 0x)
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Quick Test Chips for Investigators */}
             <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs">
               <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -233,7 +277,10 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
               </span>
               <button
                 type="button"
-                onClick={() => setWalletInput("0x71c828d132924c5e39b7038e219b25e7144e5973")}
+                onClick={() => {
+                  setWalletInput("0x71c828d132924c5e39b7038e219b25e7144e5973");
+                  setAddressError(null);
+                }}
                 className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-[11px] transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -242,7 +289,10 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
               </button>
               <button
                 type="button"
-                onClick={() => setWalletInput("0x098ea70c9187a2288339fb5aa495254149366446")}
+                onClick={() => {
+                  setWalletInput("0x098ea70c9187a2288339fb5aa495254149366446");
+                  setAddressError(null);
+                }}
                 className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-[11px] transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
@@ -251,7 +301,10 @@ export const InvestigationCommandCenter: React.FC<InvestigationCommandCenterProp
               </button>
               <button
                 type="button"
-                onClick={() => setWalletInput("0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc")}
+                onClick={() => {
+                  setWalletInput("0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc");
+                  setAddressError(null);
+                }}
                 className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-[11px] transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />

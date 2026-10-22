@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { falkorCryptoEngine } from "@/lib/falkordb/falkorClient";
 import { getSeedTransactions, synthesizeMultiHopTransactionsForWallet } from "@/lib/falkordb/ingest";
+import { getAddressValidationError } from "@/lib/validators";
 
 export async function GET() {
   try {
@@ -35,7 +36,14 @@ export async function POST(req: Request) {
     }
 
     if (action === "ingest_wallet") {
-      const address = body.address || "0x71c828d132924c5e39b7038e219b25e7144e5973";
+      const address = (body.address || "0x71c828d132924c5e39b7038e219b25e7144e5973").trim();
+      const validationError = getAddressValidationError(address);
+      if (validationError) {
+        return NextResponse.json(
+          { error: "INVALID_WALLET_ADDRESS", message: validationError },
+          { status: 400 }
+        );
+      }
       const synthesis = synthesizeMultiHopTransactionsForWallet(address);
       const result = await falkorCryptoEngine.ingestRawTransactions(synthesis.transactions);
       return NextResponse.json({

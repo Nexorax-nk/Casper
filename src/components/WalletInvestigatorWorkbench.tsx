@@ -5,6 +5,7 @@ import { WalletNode, TransferEdge, ForensicCase, RiskFactor } from "@/lib/types"
 import { InteractiveGraphCanvas } from "./InteractiveGraphCanvas";
 import { ForensicReportDossier } from "./ForensicReportDossier";
 import { CASE_PIG_BUTCHERING_RISK_FACTORS } from "@/lib/falkordb/seedData";
+import { getAddressValidationError } from "@/lib/validators";
 import {
   Search,
   Zap,
@@ -79,6 +80,7 @@ export const WalletInvestigatorWorkbench: React.FC<
   // Gatekeeper state: Initial view is the Intake/Upload/Sample Wallets screen
   const [hasInvestigated, setHasInvestigated] = useState<boolean>(initialHasInvestigated);
   const [inputAddress, setInputAddress] = useState<string>("");
+  const [addressError, setAddressError] = useState<string | null>(null);
   const [selectedPresetIndex, setSelectedPresetIndex] = useState<number | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
@@ -283,6 +285,7 @@ export const WalletInvestigatorWorkbench: React.FC<
         const clean = text.trim();
         setInputAddress(clean);
         setSelectedPresetIndex(null);
+        setAddressError(null);
         const matched = nodes.find((n) => n.id.toLowerCase() === clean.toLowerCase());
         if (matched) onSelectNode(matched);
       }
@@ -295,6 +298,7 @@ export const WalletInvestigatorWorkbench: React.FC<
     setSelectedPresetIndex(idx);
     const target = quickPresets[idx];
     setInputAddress(target.address);
+    setAddressError(null);
     setUploadedFile(null);
     const foundNode = nodes.find((n) => n.id.toLowerCase() === target.address.toLowerCase());
     if (foundNode) onSelectNode(foundNode);
@@ -304,6 +308,14 @@ export const WalletInvestigatorWorkbench: React.FC<
   const handleStartInvestigation = async (specificAddress?: string) => {
     const addressToQuery = (specificAddress || inputAddress || activeCase.targetWallet).trim();
     if (!addressToQuery) return;
+
+    // Validate crypto address format before launching telemetry HUD
+    const validationErr = getAddressValidationError(addressToQuery);
+    if (validationErr) {
+      setAddressError(validationErr);
+      return;
+    }
+    setAddressError(null);
 
     setIsActivatingFalkor(true);
     setActivationStep(1);
@@ -654,16 +666,27 @@ ORDER BY pathVolume DESC;`;
 
                 <div className="space-y-3">
                   <div className="relative">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <Search
+                      className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${
+                        (addressError || (inputAddress.trim() && getAddressValidationError(inputAddress.trim())))
+                          ? "text-rose-500"
+                          : "text-slate-400"
+                      }`}
+                    />
                     <input
                       type="text"
                       value={inputAddress}
                       onChange={(e) => {
                         setInputAddress(e.target.value);
                         setSelectedPresetIndex(null);
+                        if (addressError) setAddressError(null);
                       }}
                       placeholder="Paste suspect wallet address (0x...) or transaction hash to investigate..."
-                      className="w-full pl-10 pr-20 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white text-slate-900 font-mono text-xs focus:outline-none transition-all placeholder:text-slate-400 shadow-xs"
+                      className={`w-full pl-10 pr-20 py-3 rounded-xl border font-mono text-xs focus:outline-none transition-all placeholder:text-slate-400 shadow-xs ${
+                        (addressError || (inputAddress.trim() && getAddressValidationError(inputAddress.trim())))
+                          ? "bg-rose-50/20 border-rose-400 focus:border-rose-500 text-rose-900"
+                          : "bg-slate-50 border-slate-200 focus:border-emerald-500 focus:bg-white text-slate-900"
+                      }`}
                     />
                     {inputAddress && (
                       <button
@@ -672,6 +695,7 @@ ORDER BY pathVolume DESC;`;
                           setInputAddress("");
                           setSelectedPresetIndex(null);
                           setUploadedFile(null);
+                          setAddressError(null);
                         }}
                         className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700"
                         title="Clear"
@@ -681,19 +705,41 @@ ORDER BY pathVolume DESC;`;
                     )}
                   </div>
 
-                  {/* Target Preview Pill */}
+                  {/* Target Preview Pill or Error Alert */}
                   {inputAddress ? (
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Wallet className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                        <span className="text-xs font-mono font-bold text-slate-900 truncate">
-                          {inputAddress}
+                    (addressError || (inputAddress.trim() && getAddressValidationError(inputAddress.trim()))) ? (
+                      <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-300 flex items-start gap-3 animate-in fade-in duration-150 shadow-xs">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-rose-900 uppercase tracking-wide">
+                              Invalid Wallet Address
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-200 text-rose-900 uppercase tracking-wider flex-shrink-0 font-mono">
+                              Format Rejected
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-rose-700 leading-snug font-sans">
+                            {addressError || (inputAddress.trim() && getAddressValidationError(inputAddress.trim()))}
+                          </p>
+                          <p className="text-[10px] text-rose-600/90 font-mono">
+                            Expected: 0x followed by 40 hexadecimal characters (42 chars total)
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Wallet className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                          <span className="text-xs font-mono font-bold text-slate-900 truncate">
+                            {inputAddress}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase tracking-wider flex-shrink-0">
+                          Ready to Trace
                         </span>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase tracking-wider flex-shrink-0">
-                        Ready to Trace
-                      </span>
-                    </div>
+                    )
                   ) : (
                     <div className="p-3 rounded-xl bg-slate-50/60 border border-dashed border-slate-200 text-xs text-slate-400 text-center">
                       Enter an address above or click any sample target below to preview.
@@ -706,7 +752,10 @@ ORDER BY pathVolume DESC;`;
               <div className="pt-4 mt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  disabled={!inputAddress.trim() && !selectedPresetIndex}
+                  disabled={
+                    Boolean(inputAddress.trim() && getAddressValidationError(inputAddress.trim())) ||
+                    (!inputAddress.trim() && selectedPresetIndex === null)
+                  }
                   onClick={() => handleStartInvestigation()}
                   className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-sm font-extrabold transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed group"
                 >

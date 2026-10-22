@@ -25,6 +25,7 @@ interface SidebarNavProps {
   walletsCount: number;
   transfersCount: number;
   activeCase?: ForensicCase;
+  isWalletIngested?: boolean;
 }
 
 export const SidebarNav: React.FC<SidebarNavProps> = ({
@@ -36,6 +37,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   walletsCount,
   transfersCount,
   activeCase,
+  isWalletIngested = true,
 }) => {
   const [copiedTarget, setCopiedTarget] = useState(false);
 
@@ -60,7 +62,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       key: "explorer" as TabKey,
       label: "Trace Explorer",
       icon: Network,
-      badge: "Live Graph",
+      badge: isWalletIngested ? "Live Graph" : "Intake",
     },
     {
       key: "reasoning" as TabKey,
@@ -72,18 +74,20 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       key: "report" as TabKey,
       label: "Evidence & Reports",
       icon: FileText,
-      badge: `Risk ${overallRiskScore}`,
+      badge: isWalletIngested ? `Risk ${overallRiskScore}` : "Standby",
     },
   ];
 
   return (
     <aside
+      suppressHydrationWarning
       className={`relative flex flex-col justify-between border-r border-slate-200 bg-white transition-all duration-200 z-40 shadow-xs h-full overflow-hidden flex-shrink-0 select-none ${
         isCollapsed ? "w-16" : "w-64"
       }`}
     >
       {/* Collapse Toggle Button */}
       <button
+        suppressHydrationWarning
         onClick={onToggleCollapse}
         aria-label="Toggle Sidebar"
         className="absolute -right-3 top-4 z-50 p-1.5 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-slate-900 shadow-md hover:border-slate-300 transition-colors cursor-pointer"
@@ -118,6 +122,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
             return (
               <button
                 key={item.key}
+                suppressHydrationWarning
                 onClick={() => onTabChange(item.key)}
                 title={isCollapsed ? item.label : undefined}
                 className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left transition-all duration-150 cursor-pointer ${
@@ -162,37 +167,43 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5 shadow-2xs">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Target Wallet
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    isWalletIngested ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                  }`}
+                />
+                {isWalletIngested ? "Target Wallet" : "Target Subject"}
               </span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white text-slate-600 border border-slate-200 font-mono">
-                {activeCase?.chain || "Ethereum"}
+                {isWalletIngested ? (activeCase?.chain || "Ethereum") : "Standby"}
               </span>
             </div>
 
             <div className="flex items-center justify-between gap-1 p-2 rounded-lg bg-white border border-slate-200">
-              <span className="font-mono text-xs font-bold text-slate-900 truncate">
-                {targetWallet.slice(0, 8)}...{targetWallet.slice(-6)}
+              <span className={`font-mono text-xs ${isWalletIngested ? "font-bold text-slate-900" : "italic text-slate-400"} truncate`}>
+                {isWalletIngested ? `${targetWallet.slice(0, 8)}...${targetWallet.slice(-6)}` : "Awaiting Ingestion..."}
               </span>
-              <button
-                onClick={handleCopyTarget}
-                className="p-1 rounded text-slate-400 hover:text-slate-800 transition-colors cursor-pointer"
-                title="Copy Target Address"
-              >
-                {copiedTarget ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-              </button>
+              {isWalletIngested && (
+                <button
+                  onClick={handleCopyTarget}
+                  className="p-1 rounded text-slate-400 hover:text-slate-800 transition-colors cursor-pointer"
+                  title="Copy Target Address"
+                >
+                  {copiedTarget ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              )}
             </div>
 
             <div className="flex items-center justify-between text-[11px] pt-0.5">
               <span className="text-slate-700 font-semibold truncate max-w-[140px]">
-                {activeCase?.title || "Pig Butchering Syndicate"}
+                {isWalletIngested ? (activeCase?.title || "Pig Butchering Syndicate") : "Unassigned Docket"}
               </span>
               <span className="text-slate-500 font-mono font-bold">
-                ${((activeCase?.reportedLossUsd || 145000) / 1000).toFixed(0)}k Loss
+                {isWalletIngested ? `$${((activeCase?.reportedLossUsd || 145000) / 1000).toFixed(0)}k Loss` : "$0.00"}
               </span>
             </div>
           </div>

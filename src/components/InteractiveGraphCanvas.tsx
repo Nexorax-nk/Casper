@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import * as d3 from "d3";
 import { WalletNode, TransferEdge, WalletCategory } from "@/lib/types";
 import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Minimize2,
   Filter,
   Copy,
   Check,
@@ -71,11 +72,17 @@ export const InteractiveGraphCanvas: React.FC<InteractiveGraphCanvasProps> = ({
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const simulationRef = useRef<d3.Simulation<D3Node, D3Edge> | null>(null);
 
+  // Persistent coordinates store across re-renders & hop filters
+  const nodePositionsRef = useRef<
+    Map<string, { x: number; y: number; fx?: number | null; fy?: number | null }>
+  >(new Map());
+  const currentTransformRef = useRef<d3.ZoomTransform | null>(null);
+
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const [minAmountFilter, setMinAmountFilter] = useState<number>(0);
   const [activeHops, setActiveHops] = useState<number>(maxHops || 4);
   const [layoutStyle, setLayoutStyle] = useState<"organic" | "staged">("organic");
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || null;
 
@@ -83,6 +90,112 @@ export const InteractiveGraphCanvas: React.FC<InteractiveGraphCanvasProps> = ({
     navigator.clipboard.writeText(text);
     setCopiedAddress(text);
     setTimeout(() => setCopiedAddress(null), 2000);
+  };
+
+  // Fullscreen / Expand Canvas Toggle
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+
+    if (!isFullscreen) {
+      setIsFullscreen(true);
+      try {
+        if (containerRef.current.requestFullscreen) {
+          containerRef.current.requestFullscreen().catch(() => {});
+        }
+      } catch {}
+    } else {
+      setIsFullscreen(false);
+      try {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      } catch {}
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isNativeFs = !!document.fullscreenElement;
+      if (!isNativeFs && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullscreen) {
+        setIsFullscreen(false);
+        try {
+          if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+          }
+        } catch {}
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isFullscreen]);
+
+  // Re-fit view smoothly when expanding/minimizing or on window resize
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleFitView();
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      handleFitView();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isFullscreen]);
+
+  // Zoom Controllers
+  const handleZoomIn = () => {
+    if (!svgRef.current || !zoomRef.current) return;
+    d3.select(svgRef.current).transition().duration(250).call(zoomRef.current.scaleBy, 1.25);
+  };
+
+  const handleZoomOut = () => {
+    if (!svgRef.current || !zoomRef.current) return;
+    d3.select(svgRef.current).transition().duration(250).call(zoomRef.current.scaleBy, 0.8);
+  };
+
+  const handleFitView = (isInspectorOpen?: boolean) => {
+    if (!svgRef.current || !zoomRef.current || !containerRef.current) return;
+    const width = containerRef.current.clientWidth || (typeof window !== "undefined" ? window.innerWidth : 960);
+    const height = containerRef.current.clientHeight || (typeof window !== "undefined" ? window.innerHeight : 580);
+    const isOpen = typeof isInspectorOpen === "boolean" ? isInspectorOpen : !!selectedNodeId;
+    const availableWidth = isOpen ? Math.max(width - 410, width * 0.6) : width;
+    const maxScale = isFullscreen ? 1.35 : 0.88;
+    const scale = Math.min((availableWidth - 80) / 1020, (height - 120) / 480, maxScale);
+    const targetTransform = d3.zoomIdentity.translate(availableWidth / 2 - 520 * scale, height / 2 - 300 * scale).scale(scale);
+    currentTransformRef.current = targetTransform;
+    d3.select(svgRef.current)
+      .transition()
+      .duration(380)
+      .call(zoomRef.current.transform, targetTransform);
+  };
+
+  const handleResetSimulation = () => {
+    nodePositionsRef.current.clear();
+    if (!simulationRef.current) return;
+    simulationRef.current.nodes().forEach((d) => {
+      d.fx = layoutStyle === "staged" ? (d.targetX ?? null) : null;
+      d.fy = layoutStyle === "staged" ? (d.targetY ?? null) : null;
+      if (d.targetX !== undefined) d.x = d.targetX;
+      if (d.targetY !== undefined) d.y = d.targetY;
+      d.vx = 0;
+      d.vy = 0;
+    });
+    simulationRef.current.alpha(0.8).restart();
+    handleFitView();
   };
 
   // Category Color Palette & Theming (Original Vibrant Holographic Palette)
@@ -163,68 +276,28 @@ export const InteractiveGraphCanvas: React.FC<InteractiveGraphCanvasProps> = ({
     }
   };
 
-  // Filter edges based on active hops and min amount
-  const filteredEdges = edges.filter((e) => {
-    const hopMatch = (e.hopNumber || 1) <= activeHops;
-    const amountMatch = e.amountUsd >= minAmountFilter;
-    return hopMatch && amountMatch;
-  });
-
-  const activeNodeIds = new Set<string>();
-  filteredEdges.forEach((e) => {
-    activeNodeIds.add(typeof e.source === "string" ? e.source : (e.source as WalletNode).id);
-    activeNodeIds.add(typeof e.target === "string" ? e.target : (e.target as WalletNode).id);
-  });
-
-  const filteredNodes = nodes.filter(
-    (n) => activeNodeIds.has(n.id) || n.category === "scam_source"
-  );
-
-  // Zoom Controllers
-  const handleZoomIn = () => {
-    if (!svgRef.current || !zoomRef.current) return;
-    d3.select(svgRef.current).transition().duration(250).call(zoomRef.current.scaleBy, 1.25);
-  };
-
-  const handleZoomOut = () => {
-    if (!svgRef.current || !zoomRef.current) return;
-    d3.select(svgRef.current).transition().duration(250).call(zoomRef.current.scaleBy, 0.8);
-  };
-
-  const handleFitView = (isInspectorOpen?: boolean) => {
-    if (!svgRef.current || !zoomRef.current || !containerRef.current) return;
-    const width = containerRef.current.clientWidth || 960;
-    const height = containerRef.current.clientHeight || 580;
-    const isOpen = typeof isInspectorOpen === "boolean" ? isInspectorOpen : !!selectedNodeId;
-    const availableWidth = isOpen ? Math.max(width - 390, width * 0.58) : width;
-    const scale = Math.min((availableWidth - 80) / 1020, (height - 120) / 480, 0.78);
-    d3.select(svgRef.current)
-      .transition()
-      .duration(380)
-      .call(
-        zoomRef.current.transform,
-        d3.zoomIdentity.translate(availableWidth / 2 - 520 * scale, height / 2 - 300 * scale).scale(scale)
-      );
-  };
-
-  // Automatically pan canvas when inspector drawer opens or closes so nodes are never hidden
-  useEffect(() => {
-    handleFitView(!!selectedNodeId);
-  }, [selectedNodeId]);
-
-  const handleResetSimulation = () => {
-    if (!simulationRef.current) return;
-    simulationRef.current.nodes().forEach((d) => {
-      d.fx = null;
-      d.fy = null;
-      if (d.targetX !== undefined) d.x = d.targetX;
-      if (d.targetY !== undefined) d.y = d.targetY;
-      d.vx = 0;
-      d.vy = 0;
+  // Filter edges based on active hops and min amount (memoized to avoid tearing D3 on re-renders)
+  const filteredEdges = useMemo(() => {
+    return edges.filter((e) => {
+      const hopMatch = (e.hopNumber || 1) <= activeHops;
+      const amountMatch = e.amountUsd >= minAmountFilter;
+      return hopMatch && amountMatch;
     });
-    simulationRef.current.alpha(0.8).restart();
-    handleFitView();
-  };
+  }, [edges, activeHops, minAmountFilter]);
+
+  const filteredNodes = useMemo(() => {
+    const activeNodeIds = new Set<string>();
+    filteredEdges.forEach((e) => {
+      activeNodeIds.add(typeof e.source === "string" ? e.source : (e.source as WalletNode).id);
+      activeNodeIds.add(typeof e.target === "string" ? e.target : (e.target as WalletNode).id);
+    });
+
+    return nodes.filter(
+      (n) => activeNodeIds.has(n.id) || n.category === "scam_source"
+    );
+  }, [nodes, filteredEdges]);
+
+
 
   // =========================================================================
   // D3 FORCE-DIRECTED SIMULATION WITH CIRCULAR GLOWING NODES
@@ -279,28 +352,36 @@ export const InteractiveGraphCanvas: React.FC<InteractiveGraphCanvasProps> = ({
     // Root Group
     const g = svg.append("g").attr("class", "graph-root");
 
-    // Zoom Behavior with mouse wheel guard
+    // Zoom Behavior with mouse wheel & drag exclusion guard
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.35, 2.5])
+      .scaleExtent([0.25, 3.0])
       .filter((event) => {
-        if (event.type === "wheel") return event.ctrlKey || event.metaKey;
+        if (event.type === "wheel") return true;
+        const target = event.target as Element | null;
+        if (target && (target.closest(".node-element") || target.closest(".edge-label-item"))) {
+          return false;
+        }
         return !event.button;
       })
       .on("zoom", (event) => {
+        currentTransformRef.current = event.transform;
         g.attr("transform", event.transform);
       });
 
     zoomRef.current = zoom;
     svg.call(zoom);
 
-    // Initial View Transform
-    const availableWidth = selectedNodeId ? Math.max(width - 390, width * 0.58) : width;
-    const scale = Math.min((availableWidth - 60) / 980, (height - 80) / 580, 0.86);
-    svg.call(
-      zoom.transform,
-      d3.zoomIdentity.translate(availableWidth / 2 - 520 * scale, height / 2 - 300 * scale).scale(scale)
-    );
+    // Initial View Transform or restore existing zoom/pan position
+    if (currentTransformRef.current) {
+      svg.call(zoom.transform, currentTransformRef.current);
+    } else {
+      const availableWidth = selectedNodeId ? Math.max(width - 390, width * 0.58) : width;
+      const scale = Math.min((availableWidth - 60) / 980, (height - 80) / 580, 0.86);
+      const initTransform = d3.zoomIdentity.translate(availableWidth / 2 - 520 * scale, height / 2 - 300 * scale).scale(scale);
+      currentTransformRef.current = initTransform;
+      svg.call(zoom.transform, initTransform);
+    }
 
     // Canvas background click catcher to deselect active node when clicking empty canvas
     g.append("rect")
@@ -340,13 +421,22 @@ export const InteractiveGraphCanvas: React.FC<InteractiveGraphCanvasProps> = ({
       "0xbb82c82736182901c82736182901a82736182906": { x: 950, y: 480, hop: 4 },
     };
 
-    // Prepare Node data for D3
+    // Prepare Node data for D3 with position retention across re-renders
     const simNodes: D3Node[] = filteredNodes.map((n) => {
       const pos = stagedPositions[n.id] || { x: width / 2, y: height / 2, hop: 2 };
+      const saved = nodePositionsRef.current.get(n.id);
+
+      const posX = saved?.x ?? pos.x;
+      const posY = saved?.y ?? pos.y;
+      const pinX = saved ? saved.fx : (layoutStyle === "staged" ? pos.x : null);
+      const pinY = saved ? saved.fy : (layoutStyle === "staged" ? pos.y : null);
+
       return {
         ...n,
-        x: pos.x,
-        y: pos.y,
+        x: posX,
+        y: posY,
+        fx: pinX,
+        fy: pinY,
         targetX: pos.x,
         targetY: pos.y,
         hopLevel: pos.hop,
@@ -452,6 +542,7 @@ export const InteractiveGraphCanvas: React.FC<InteractiveGraphCanvasProps> = ({
       .data(simEdges)
       .enter()
       .append("g")
+      .attr("class", "edge-label-item")
       .attr("cursor", "pointer");
 
     // Label Background Rect with generous padding and crisp border
@@ -500,25 +591,29 @@ export const InteractiveGraphCanvas: React.FC<InteractiveGraphCanvasProps> = ({
       .append("g")
       .attr("class", "nodes-layer")
       .selectAll("g")
-      .data(simNodes)
+      .data(simNodes, (d: any) => d.id)
       .enter()
       .append("g")
+      .attr("class", "node-element")
+      .attr("data-id", (d) => d.id)
       .attr("cursor", "grab")
       .on("click", (event, d) => {
-        if (event.defaultPrevented) return; // Prevent click from firing after dragging
         event.stopPropagation();
+        if (Date.now() - lastDragEndTime < 250) {
+          return;
+        }
         onSelectNode(d);
       })
       .on("dblclick", (event, d) => {
-        // Double-click unpins the node and lets it float naturally
+        // Double-click unpins the node and lets it float naturally with organic physics
         event.stopPropagation();
         d.fx = null;
         d.fy = null;
-        simulation.alpha(0.3).restart();
+        nodePositionsRef.current.delete(d.id);
+        simulation.alpha(0.4).restart();
       })
-      .on("mouseenter", (event, d) => {
-        setHoveredNodeId(d.id);
-        // Highlight active connections
+      .on("mouseenter", function (event, d) {
+        // Pure D3 connection highlighting - ZERO React re-renders for buttery 60fps performance
         linkPaths
           .attr("stroke", (l) => {
             const sId = typeof l.source === "string" ? l.source : l.source.id;
@@ -531,9 +626,13 @@ export const InteractiveGraphCanvas: React.FC<InteractiveGraphCanvasProps> = ({
             const tId = typeof l.target === "string" ? l.target : l.target.id;
             return sId === d.id || tId === d.id ? 3.5 : 1.2;
           });
+
+        d3.select(this)
+          .select(".node-aura")
+          .attr("stroke-width", 2.5)
+          .attr("opacity", 1);
       })
-      .on("mouseleave", () => {
-        setHoveredNodeId(null);
+      .on("mouseleave", function (event, d) {
         linkPaths
           .attr("stroke", (l) =>
             l.isPeelSplit ? "#9333EA" : l.amountUsd >= 100000 ? "#334155" : "#64748B"
@@ -541,36 +640,76 @@ export const InteractiveGraphCanvas: React.FC<InteractiveGraphCanvasProps> = ({
           .attr("stroke-width", (l) =>
             l.isPeelSplit ? 2.2 : Math.max(2, Math.min(4.2, (l.amountUsd / 50000) * 2))
           );
+
+        d3.select(this)
+          .select(".node-aura")
+          .attr("stroke-width", d.id === selectedNodeId ? 3.5 : 1)
+          .attr("opacity", d.id === selectedNodeId ? 1 : 0.6);
+      });
+
+    // D3 Drag Behavior with single-click vs drag movement discrimination
+    let lastDragEndTime = 0;
+
+    const dragBehavior = d3
+      .drag<SVGGElement, D3Node>()
+      .container(g.node()!)
+      .on("start", function (event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+        d3.select(this).style("cursor", "grabbing");
+        (d as any).__dragStartX = event.x;
+        (d as any).__dragStartY = event.y;
+        (d as any).__hasDragged = false;
       })
-      .call(
-        d3
-          .drag<SVGGElement, D3Node>()
-          .on("start", (event, d) => {
-            if (!event.active) simulation.alphaTarget(0.25).restart();
-            d.fx = d.x;
-            d.fy = d.y;
-            d3.select(event.sourceEvent.target).style("cursor", "grabbing");
-          })
-          .on("drag", (event, d) => {
-            d.fx = event.x;
-            d.fy = event.y;
-          })
-          .on("end", (event, d) => {
-            if (!event.active) simulation.alphaTarget(0);
-            // Crucial fix: keep d.fx and d.fy so the dragged node remains pinned where placed!
-            d.fx = event.x;
-            d.fy = event.y;
-            d3.select(event.sourceEvent.target).style("cursor", "grab");
-          })
-      );
+      .on("drag", function (event, d) {
+        const startX = (d as any).__dragStartX ?? event.x;
+        const startY = (d as any).__dragStartY ?? event.y;
+        if (Math.hypot(event.x - startX, event.y - startY) > 3) {
+          (d as any).__hasDragged = true;
+        }
+
+        d.fx = event.x;
+        d.fy = event.y;
+        d.x = event.x;
+        d.y = event.y;
+      })
+      .on("end", function (event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d3.select(this).style("cursor", "grab");
+
+        const wasDragged = !!(d as any).__hasDragged;
+        delete (d as any).__dragStartX;
+        delete (d as any).__dragStartY;
+        delete (d as any).__hasDragged;
+
+        if (wasDragged) {
+          lastDragEndTime = Date.now();
+          // Keep node pinned right where user dragged it
+          d.fx = event.x;
+          d.fy = event.y;
+          nodePositionsRef.current.set(d.id, {
+            x: event.x,
+            y: event.y,
+            fx: event.x,
+            fy: event.y,
+          });
+        } else {
+          // Pure single click: instantly select node and open inspector panel
+          onSelectNode(d);
+        }
+      });
+
+    nodeGroup.call(dragBehavior);
 
     // Layer 1: Outer Pulsating Aura Glow Ring
     nodeGroup
       .append("circle")
-      .attr("r", 28)
+      .attr("class", "node-aura")
+      .attr("r", (d) => (d.id === selectedNodeId ? 32 : 28))
       .attr("fill", (d) => getCategoryTheme(d.category).glow)
-      .attr("stroke", (d) => getCategoryTheme(d.category).color)
-      .attr("stroke-width", (d) => (d.id === selectedNodeId ? 2.5 : 1))
+      .attr("stroke", (d) => (d.id === selectedNodeId ? "#0284C7" : getCategoryTheme(d.category).color))
+      .attr("stroke-width", (d) => (d.id === selectedNodeId ? 3.5 : 1))
       .attr("stroke-dasharray", (d) => (d.category === "scam_source" ? "3,2" : "none"))
       .attr("opacity", (d) => (d.id === selectedNodeId ? 1 : 0.6));
 
@@ -771,12 +910,34 @@ export const InteractiveGraphCanvas: React.FC<InteractiveGraphCanvasProps> = ({
     return () => {
       simulation.stop();
     };
-  }, [filteredNodes, filteredEdges, selectedNodeId, layoutStyle]);
+  }, [filteredNodes, filteredEdges, layoutStyle]);
+
+  // Smooth visual node selection transition without rebuilding D3 simulation
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    svg.selectAll<SVGGElement, D3Node>(".node-element").each(function (d) {
+      const isSelected = d.id === selectedNodeId;
+      const theme = getCategoryTheme(d.category);
+      d3.select(this)
+        .select(".node-aura")
+        .transition()
+        .duration(200)
+        .attr("r", isSelected ? 32 : 28)
+        .attr("stroke", isSelected ? "#0284C7" : theme.color)
+        .attr("stroke-width", isSelected ? 3.5 : 1)
+        .attr("opacity", isSelected ? 1 : 0.6);
+    });
+  }, [selectedNodeId]);
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full bg-white rounded-2xl border border-slate-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden select-none"
+      className={`relative w-full ${
+        isFullscreen
+          ? "fixed inset-0 z-[9999] w-screen h-screen rounded-none bg-white border-0 shadow-none"
+          : "h-full bg-white rounded-2xl border border-slate-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+      } overflow-hidden select-none transition-all duration-200`}
     >
       {/* ========================================================================= */}
       {/* FLOATING TOP GRAPH TOOLBAR                                                */}
@@ -885,11 +1046,20 @@ export const InteractiveGraphCanvas: React.FC<InteractiveGraphCanvasProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => handleFitView()}
-              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition-colors cursor-pointer"
-              title="Center & Fit View"
+              onClick={toggleFullscreen}
+              className={`p-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center ${
+                isFullscreen
+                  ? "bg-slate-900 text-white hover:bg-slate-800 shadow-xs ring-1 ring-slate-900"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white"
+              }`}
+              title={isFullscreen ? "Exit Fullscreen (Esc)" : "Expand Canvas (Fullscreen)"}
+              aria-label={isFullscreen ? "Exit Fullscreen" : "Expand Canvas"}
             >
-              <Maximize2 className="w-3.5 h-3.5" />
+              {isFullscreen ? (
+                <Minimize2 className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Maximize2 className="w-3.5 h-3.5" />
+              )}
             </button>
             <button
               type="button"
